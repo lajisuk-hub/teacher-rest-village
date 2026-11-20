@@ -1,0 +1,106 @@
+:root{
+  --ink:#2f4a3c; --ink2:#6f7d72; --green:#4a6b57; --green-d:#3c5949;
+  --card:#fbf8ef; --line:#e3decf; --bg:#e8e5d8;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
+  font-family:"Pretendard Variable",Pretendard,system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+button,input{font:inherit;color:inherit}
+canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+canvas#c.drag{cursor:grabbing}
+[hidden]{display:none!important}
+#labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+
+.tag{position:absolute;left:0;top:0;transform:translate(-50%,-100%);white-space:nowrap;
+  background:rgba(251,248,239,.92);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;
+  color:var(--ink);box-shadow:0 2px 8px rgba(40,60,45,.12)}
+.tag.me{background:var(--green);color:#fff}
+.bubble{position:absolute;left:0;top:0;transform:translate(-50%,-100%);white-space:nowrap;
+  background:#fff;border-radius:14px;padding:7px 13px;font-size:15px;color:#2b3a30;
+  box-shadow:0 4px 14px rgba(40,60,45,.18);animation:pop .25s ease-out}
+.bubble::after{content:"";position:absolute;left:50%;bottom:-6px;margin-left:-6px;border:6px solid transparent;border-top-color:#fff;border-bottom:0}
+@keyframes pop{from{opacity:0;transform:translate(-50%,-80%) scale(.8)}}
+
+.brand{position:fixed;left:28px;top:24px;display:flex;gap:12px;align-items:center;pointer-events:none}
+.brand .logo{width:46px;height:46px;border-radius:14px;background:var(--green);display:grid;place-items:center;font-size:24px;box-shadow:0 4px 12px rgba(40,60,45,.2)}
+.brand b{display:block;font-size:20px;letter-spacing:-.02em}
+.brand small{display:block;font-size:10px;letter-spacing:.18em;color:var(--ink2);margin-top:2px}
+.scene-title{position:fixed;left:30px;top:96px;pointer-events:none}
+.scene-title h1{margin:0;font-size:28px;font-weight:600;letter-spacing:-.03em}
+.scene-title p{margin:6px 0 0;font-size:13px;color:var(--ink2)}
+
+.top-right{position:fixed;right:24px;top:26px;display:flex;gap:8px}
+.pill{background:var(--card);border-radius:14px;padding:10px 16px;font-size:13px;box-shadow:0 3px 12px rgba(40,60,45,.1);display:flex;align-items:center;gap:8px}
+.pill.music button{border:0;background:none;font-size:20px;cursor:pointer;padding:0 2px;line-height:1}
+.pill.music button.off{opacity:.35}
+.pill input[type=range]{width:64px;accent-color:var(--green)}
+
+.me-card{position:fixed;left:28px;bottom:28px;background:var(--card);border-radius:16px;padding:12px 14px 12px 18px;
+  display:flex;gap:14px;align-items:center;box-shadow:0 3px 14px rgba(40,60,45,.12)}
+.me-card b{display:block;font-size:14px}
+.me-card small{font-size:11px;color:var(--ink2)}
+.me-card button{border:0;background:#eae6d8;border-radius:10px;padding:8px 12px;font-size:13px;cursor:pointer}
+
+.rooms{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);display:flex;gap:4px;background:var(--card);
+  border-radius:18px;padding:6px;box-shadow:0 3px 14px rgba(40,60,45,.12)}
+.rooms button{border:0;background:none;border-radius:13px;padding:8px 14px;display:flex;gap:9px;align-items:center;cursor:pointer;text-align:left}
+.rooms button i{font-style:normal;font-size:22px}
+.rooms button b{display:block;font-size:13px;font-weight:600}
+.rooms button small{display:block;font-size:10px;color:var(--ink2)}
+.rooms button:hover{background:#efebdf}
+.rooms button.on{background:var(--green);color:#fff}
+.rooms button.on small{color:#d7e3da}
+.foot{position:fixed;left:50%;bottom:6px;transform:translateX(-50%);margin:0;font-size:11px;color:var(--ink2);white-space:nowrap}
+
+.say{position:fixed;left:50%;bottom:104px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;
+  background:var(--card);border-radius:16px;padding:6px 6px 6px 16px;box-shadow:0 3px 14px rgba(40,60,45,.14)}
+.say input{border:0;background:none;outline:none;width:210px;font-size:14px}
+.say span{font-size:11px;color:var(--ink2)}
+.say button{border:0;background:var(--green);color:#fff;border-radius:11px;padding:9px 14px;font-weight:600;cursor:pointer}
+
+.cam{position:fixed;right:24px;bottom:28px;display:flex;gap:6px}
+.cam button{border:0;background:var(--card);border-radius:12px;min-width:40px;height:40px;cursor:pointer;box-shadow:0 3px 12px rgba(40,60,45,.12);font-size:16px}
+.cam button.wide{padding:0 14px;font-size:13px}
+.cam button.on{background:var(--green);color:#fff}
+.help{position:fixed;right:26px;bottom:76px;margin:0;font-size:11px;color:var(--ink2)}
+
+.toast{position:fixed;left:50%;top:26px;transform:translateX(-50%);background:var(--green);color:#fff;border-radius:12px;padding:10px 18px;font-size:14px;box-shadow:0 4px 14px rgba(40,60,45,.25)}
+
+.overlay{position:fixed;inset:0;display:grid;place-items:center;background:rgba(232,229,216,.35);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);padding:16px}
+.overlay[hidden]{display:none}
+.card{background:var(--card);border-radius:28px;padding:40px 32px 28px;width:min(470px,100%);text-align:center;box-shadow:0 20px 60px rgba(40,60,45,.18)}
+.eyebrow{margin:0;font-size:11px;letter-spacing:.2em;color:var(--ink2)}
+.card h2{margin:14px 0 12px;font-size:30px;font-weight:500;letter-spacing:-.03em}
+.lead{margin:0;color:var(--ink2);font-size:14px;line-height:1.75}
+.aprons{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:24px 0 18px}
+.aprons button{border:2px solid transparent;background:#efece2;border-radius:14px;padding:14px 4px 10px;cursor:pointer}
+.aprons button.on{border-color:var(--green);background:#e6ecdf}
+.aprons svg{width:46px;height:62px;display:block;margin:0 auto 8px}
+.aprons span{font-size:12px}
+.note{font-size:13px;color:var(--ink2);margin:0 0 14px}
+.go{width:100%;border:0;background:var(--green);color:#fff;border-radius:14px;padding:16px;font-size:16px;font-weight:600;cursor:pointer}
+.go:disabled{opacity:.5;cursor:wait}
+.small{font-size:12px;color:var(--ink2);margin:12px 0 0}
+
+.rooms button b,.rooms button small{white-space:nowrap}
+@media (max-width:1100px){
+  .rooms{left:12px;right:12px;transform:none;bottom:70px;justify-content:space-between;padding:4px}
+  .rooms button{flex:1;justify-content:center}
+  .me-card{left:12px;bottom:12px;padding:8px 8px 8px 14px}
+  .cam{right:12px;bottom:12px}
+  .say{bottom:146px}
+  .help,.foot{display:none}
+}
+@media (max-width:760px){
+  .brand{left:16px;top:14px}.brand .logo{width:38px;height:38px;font-size:20px}.brand small{display:none}
+  .scene-title{left:16px;top:64px}.scene-title h1{font-size:20px}.scene-title p{font-size:12px}
+  .top-right{right:12px;top:16px}.pill{padding:8px 10px;font-size:12px}.pill input[type=range]{display:none}
+  .rooms{left:8px;right:8px;bottom:58px}
+  .rooms button{flex-direction:column;gap:2px;padding:6px 2px;text-align:center}
+  .rooms button i{font-size:18px}.rooms button b{font-size:11px}
+  .me-card{left:8px;bottom:8px}.me-card b{font-size:12px}
+  .cam{right:8px;bottom:8px}.cam button{height:36px;min-width:36px}.cam button.wide{padding:0 10px;font-size:12px}
+  .say{bottom:136px;left:8px;right:8px;transform:none}.say input{width:auto;flex:1;min-width:0}
+  .card{padding:28px 18px 20px}.card h2{font-size:24px}
+}
+@media (max-width:430px){ .me-card small{display:none} .me-card{padding:8px} }

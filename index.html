@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>토닥 쉼터 · 선생님들의 작은 3D 마을</title>
+<meta name="description" content="선생님들이 함께 들어와 걷고, 앉고, 짧은 말을 나누는 3D 쉼터">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+  "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm"
+} }
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="labels"></div>
+
+<header class="brand">
+  <div class="logo">🌿</div>
+  <div><b>토닥 쉼터</b><small>A COZY VILLAGE FOR TEACHERS</small></div>
+</header>
+<div class="scene-title"><h1 id="sceneTitle">햇살 텃밭 마당</h1><p id="sceneSub">천천히 걸으며 숨을 골라 보세요.</p></div>
+
+<div class="top-right">
+  <div class="pill" id="totalPill">함께 쉬는 선생님 1명</div>
+  <div class="pill music"><button id="musicBtn" title="음악 켜고 끄기">♫</button><input id="vol" type="range" min="0" max="1" step="0.01" value="0.35"></div>
+</div>
+
+<div class="me-card hud" hidden id="meCard">
+  <div><b id="myName">-</b><small id="myStatus">연결 중…</small></div>
+  <button id="apronBtn">앞치마</button>
+</div>
+
+<nav class="rooms hud" hidden id="roomBar"></nav>
+<p class="foot hud" hidden>오늘도 애쓰신 선생님, 여기서는 잠시 쉬어 가세요.</p>
+
+<form class="say hud" hidden id="sayForm" autocomplete="off">
+  <input id="sayInput" maxlength="12" placeholder="짧은 말로 마음을 전해요">
+  <span id="sayCount">0/12</span>
+  <button>말하기</button>
+</form>
+
+<div class="cam hud" hidden>
+  <button id="rotL" title="왼쪽으로 돌리기">↶</button>
+  <button id="closeBtn" class="wide">가까이 보기</button>
+  <button id="rotR" title="오른쪽으로 돌리기">↷</button>
+  <button id="homeBtn" title="처음 보기로">⌂</button>
+</div>
+<p class="help hud" hidden id="help">방향키·바닥 누르기로 걷기 · 끌어서 둘러보기 · 의자나 물건 누르기</p>
+<div class="toast" id="toast" hidden></div>
+
+<div class="overlay" id="welcome">
+  <div class="card">
+    <p class="eyebrow">YOUR LITTLE 3D RETREAT</p>
+    <h2>반가워요, 선생님 <span>🌷</span></h2>
+    <p class="lead">아이들 곁에서 바빴던 하루,<br>여기서는 선생님 마음부터 토닥여요.</p>
+    <div class="aprons" id="aprons"></div>
+    <p class="note">이름은 들어갈 때 제비뽑기로 정해져요.</p>
+    <button class="go" id="goBtn">쉼터로 들어가기</button>
+    <p class="small" id="loadMsg">3D 마을을 준비하고 있어요…</p>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
