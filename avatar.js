@@ -1,138 +1,140 @@
-// 선생님 캐릭터(작고 동글동글한 사람 모양)
+// 선생님 캐릭터 — VRoid 견본 애니 인형(VRoid 프로젝트, 누구나·상업용·수정 허용, 출처표시 불필요)
+// 걷기·서 있기·앉기·끄덕이기는 몸의 뼈를 직접 움직여 만들고, 머리카락 흔들림·눈 깜빡임은 VRM 기능을 씁니다.
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 
-export const APRONS = [
-  { id: 'leaf',  name: '연두 앞치마', color: '#a9bf8e', mark: '🍃' },
-  { id: 'pink',  name: '분홍 앞치마', color: '#e9a7b6', mark: '♡' },
-  { id: 'sky',   name: '하늘 앞치마', color: '#86afc4', mark: '☁' },
-  { id: 'sun',   name: '노랑 앞치마', color: '#efcf6b', mark: '✿' },
+export const CHARS = [
+  { id: 'e', file: 'e' },
+  { id: 'g', file: 'g' },
+  { id: 'shino', file: 'shino' },
+  { id: 'd', file: 'd' },
+  { id: 'fumiriya', file: 'fumiriya' },
 ];
-export const apronColor = (id) => (APRONS.find((a) => a.id === id) || APRONS[0]).color;
+const HEIGHT = 1.5;
 
-const HAIRS = ['#4a3426', '#2f2420', '#6b4a33', '#3b2b25'];
-const std = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, flatShading: false });
+const loader = new GLTFLoader();
+loader.register((p) => new VRMLoaderPlugin(p));
+const files = new Map();
+const fileOf = (id) => (CHARS.find((c) => c.id === id) || CHARS[0]).file;
+function getFile(id) {
+  const f = fileOf(id);
+  if (!files.has(f)) files.set(f, fetch(`models/vrm/${f}.vrm`).then((r) => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }));
+  return files.get(f);
+}
+async function loadVRM(id) {
+  const buf = await getFile(id);
+  const gltf = await loader.parseAsync(buf, '');
+  const vrm = gltf.userData.vrm;
+  VRMUtils.removeUnnecessaryVertices(gltf.scene);
+  VRMUtils.rotateVRM0(vrm); // 앞을 +z로
+  vrm.scene.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+  return vrm;
+}
+export const preload = (id) => getFile(id).catch(() => {});
 
-function cast(m) { m.castShadow = true; m.receiveShadow = false; return m; }
+const ease = (a, b, k) => a + (b - a) * k;
 
-export function makeAvatar(apronId, seed = 0) {
+export function makeAvatar(charId) {
   const root = new THREE.Group();
-  const body = new THREE.Group();
-  root.add(body);
+  let vrm = null, bones = {}, hipsY = 0.8, wantId = charId, alive = true;
+  let phase = Math.random() * 10, blinkT = 2 + Math.random() * 3, blink = 0;
+  let nodT = 0, smileT = 0, talkT = 0, interactT = 0;
+  const pose = { walk: 0, sit: 0 }; // 0~1 로 부드럽게 바뀜
 
-  const skin = std('#f3d3bb');
-  const hair = std(HAIRS[Math.abs(seed) % HAIRS.length]);
-  const apron = std(apronColor(apronId));
-  const dress = std('#f6f1e6');
-  const shoe = std('#7a6556');
-
-  // 다리 (엉덩이 높이 0.36에서 돌아감)
-  const legs = [];
-  for (const sx of [-0.1, 0.1]) {
-    const pivot = new THREE.Group();
-    pivot.position.set(sx, 0.36, 0);
-    const leg = cast(new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.06, 0.32, 10), skin));
-    leg.position.y = -0.17;
-    const foot = cast(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.07, 0.17), shoe));
-    foot.position.set(0, -0.33, 0.03);
-    pivot.add(leg, foot);
-    body.add(pivot);
-    legs.push(pivot);
+  async function attach(id) {
+    wantId = id;
+    let v;
+    try { v = await loadVRM(id); } catch (e) { console.warn('캐릭터 불러오기 실패', e); return; }
+    if (!alive || wantId !== id) { VRMUtils.deepDispose(v.scene); return; }
+    if (vrm) { root.remove(vrm.scene); VRMUtils.deepDispose(vrm.scene); }
+    vrm = v;
+    const box = new THREE.Box3().setFromObject(vrm.scene);
+    const s = HEIGHT / (box.max.y - box.min.y);
+    vrm.scene.scale.setScalar(s);
+    root.add(vrm.scene);
+    const names = ['hips', 'spine', 'chest', 'upperChest', 'neck', 'head', 'leftUpperArm', 'leftLowerArm', 'rightUpperArm', 'rightLowerArm', 'leftHand', 'rightHand',
+      'leftUpperLeg', 'leftLowerLeg', 'rightUpperLeg', 'rightLowerLeg', 'leftFoot', 'rightFoot'];
+    bones = {};
+    for (const n of names) bones[n] = vrm.humanoid.getNormalizedBoneNode(n);
+    root.updateMatrixWorld(true);
+    const hp = new THREE.Vector3(); bones.hips.getWorldPosition(hp);
+    hipsY = hp.y - root.getWorldPosition(new THREE.Vector3()).y;
+    bones._hipsBase = bones.hips.position.y;
+    vrm.springBoneManager?.reset();
   }
-  // 원피스(안쪽) + 앞치마(겉)
-  const skirt = cast(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.33, 0.58, 14), dress));
-  skirt.position.y = 0.64;
-  body.add(skirt);
-  const apronMesh = cast(new THREE.Mesh(new THREE.CylinderGeometry(0.205, 0.335, 0.5, 14, 1, true, -1.25, 2.5), apron));
-  apronMesh.material.side = THREE.DoubleSide;
-  apronMesh.position.y = 0.62;
-  body.add(apronMesh);
-  const bib = cast(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.16, 0.03), apron));
-  bib.position.set(0, 0.9, 0.17);
-  body.add(bib);
-  const pocket = new THREE.Mesh(new THREE.CircleGeometry(0.05, 12), std('#fffaf0'));
-  pocket.position.set(0, 0.62, 0.3);
-  pocket.rotation.x = -0.2;
-  body.add(pocket);
+  attach(charId);
 
-  // 팔
-  const arms = [];
-  for (const sx of [-1, 1]) {
-    const pivot = new THREE.Group();
-    pivot.position.set(sx * 0.21, 0.9, 0);
-    const arm = cast(new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.22, 4, 8), skin));
-    arm.position.y = -0.15;
-    pivot.rotation.z = sx * 0.18;
-    pivot.add(arm);
-    body.add(pivot);
-    arms.push(pivot);
-  }
-  // 머리
-  const head = new THREE.Group();
-  head.position.y = 1.22;
-  body.add(head);
-  head.add(cast(new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 16), skin)));
-  const cap = cast(new THREE.Mesh(new THREE.SphereGeometry(0.318, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.36), hair));
-  cap.rotation.x = -0.12;
-  head.add(cap);
-  const back = cast(new THREE.Mesh(new THREE.SphereGeometry(0.315, 20, 14, Math.PI, Math.PI, 0, Math.PI * 0.78), hair));
-  head.add(back);
-  const bun = cast(new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10), hair));
-  bun.position.set(0, 0.24, -0.17);
-  head.add(bun);
-  const eyeM = std('#2a201c');
-  for (const sx of [-0.1, 0.1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 8), eyeM);
-    eye.position.set(sx, -0.01, 0.275);
-    eye.scale.set(1, 1.3, 0.6);
-    head.add(eye);
-    const cheek = new THREE.Mesh(new THREE.CircleGeometry(0.045, 12), new THREE.MeshBasicMaterial({ color: '#f2a9a2', transparent: true, opacity: 0.75 }));
-    cheek.position.set(sx * 1.7, -0.08, 0.262);
-    cheek.rotation.y = sx * 1.6;
-    head.add(cheek);
-  }
-  const smile = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.008, 6, 12, Math.PI), eyeM);
-  smile.position.set(0, -0.08, 0.288);
-  smile.rotation.z = Math.PI;
-  head.add(smile);
+  function setExpr(name, v) { try { vrm.expressionManager?.setValue(name, v); } catch (e) { /* 없는 표정은 넘어감 */ } }
 
-  let phase = Math.random() * 6;
+  function animate(dt, walking, sitting) {
+    const B = bones;
+    pose.walk = ease(pose.walk, walking ? 1 : 0, Math.min(1, dt * 8));
+    pose.sit = ease(pose.sit, sitting ? 1 : 0, Math.min(1, dt * 7));
+    const w = pose.walk * (1 - pose.sit), st = pose.sit;
+    phase += dt * (walking ? 7.5 : 1.4);
+    const sw = Math.sin(phase), cw = Math.cos(phase);
+    const breathe = Math.sin(phase * (walking ? 0.2 : 1) * 1.1) * 0.025;
+
+    // VRoid(VRM0) 뼈는 모델 안쪽 기준으로 앞이 -z 라서 앞뒤(x) 회전과 팔 내리기(z)의 부호가 반대
+    const X = -1;
+    // 다리
+    const legSwing = 0.55 * w;
+    B.leftUpperLeg.rotation.set(X * (-sw * legSwing - st * 1.55), 0, 0.02);
+    B.rightUpperLeg.rotation.set(X * (sw * legSwing - st * 1.55), 0, -0.02);
+    B.leftLowerLeg.rotation.set(X * (Math.max(0, sw) * 0.9 * w + st * 1.5), 0, 0);
+    B.rightLowerLeg.rotation.set(X * (Math.max(0, -sw) * 0.9 * w + st * 1.5), 0, 0);
+    if (B.leftFoot) B.leftFoot.rotation.x = X * -Math.max(0, sw) * 0.3 * w;
+    if (B.rightFoot) B.rightFoot.rotation.x = X * -Math.max(0, -sw) * 0.3 * w;
+
+    // 엉덩이 들썩임·몸 기울기
+    B.hips.position.y = bones._hipsBase + Math.abs(cw) * 0.035 * w - 0.015 * w;
+    B.hips.rotation.set(0, sw * 0.12 * w, sw * 0.03 * w);
+    B.spine.rotation.set(X * (0.06 * w + breathe * 0.3 - st * 0.05), -sw * 0.1 * w, 0);
+    if (B.chest) B.chest.rotation.set(X * breathe, 0, 0);
+
+    // 팔: 내려 두고, 걸을 때 앞뒤로, 앉으면 무릎 위로
+    const armDown = 1.2;
+    const armSwing = 0.45 * w;
+    const iw = interactT > 0 ? Math.sin(Math.min(1, interactT) * Math.PI) : 0;
+    B.leftUpperArm.rotation.set(X * (sw * armSwing - st * 0.55), 0, armDown - 0.05 * Math.sin(phase * 0.7) * (1 - w));
+    B.rightUpperArm.rotation.set(X * (-sw * armSwing - st * 0.55 - iw * 1.1), 0, -armDown + 0.05 * Math.sin(phase * 0.7) * (1 - w) + iw * 0.3);
+    B.leftLowerArm.rotation.set(0, 0.25 + st * 0.9, 0);
+    B.rightLowerArm.rotation.set(0, -0.25 - st * 0.9 - iw * 0.6, 0);
+
+    // 고개: 가끔 둘러보기 + 끄덕이기
+    const look = Math.sin(phase * 0.23) * 0.18 * (1 - w);
+    const nod = nodT > 0 ? Math.sin((1 - nodT) * Math.PI * 4) * 0.22 * nodT : 0;
+    B.head.rotation.set(X * (nod + 0.04), look, Math.sin(phase * 0.31) * 0.04);
+    if (B.neck) B.neck.rotation.set(X * 0.03 * w, 0, 0);
+
+    // 표정: 눈 깜빡임, 웃음, 말할 때 입
+    blinkT -= dt;
+    if (blinkT <= 0) { blink = 1; blinkT = 2.5 + Math.random() * 3.5; }
+    blink = Math.max(0, blink - dt * 7);
+    setExpr('blink', Math.sin(blink * Math.PI));
+    setExpr('happy', smileT > 0 ? Math.min(1, smileT * 2) * 0.8 : 0.15);
+    setExpr('aa', talkT > 0 ? (Math.sin(talkT * 22) * 0.5 + 0.5) * 0.6 : 0);
+    nodT = Math.max(0, nodT - dt * 1.1);
+    smileT = Math.max(0, smileT - dt);
+    talkT = Math.max(0, talkT - dt);
+    interactT = Math.max(0, interactT - dt * 0.9);
+  }
+
   return {
     root,
-    setApron(id) { apron.color.set(apronColor(id)); },
+    get hipsY() { return hipsY; },
+    setChar(id) { attach(id); },
+    gesture(name = 'emote-yes') {
+      smileT = 2.5;
+      if (name === 'interact-right') interactT = 1.2;
+      else { nodT = 1; talkT = 1.1; }
+    },
     update(dt, walking, sitting) {
-      if (sitting) {
-        body.position.y = 0.06;
-        legs.forEach((l) => (l.rotation.x = -1.45));
-        arms.forEach((a) => (a.rotation.x = -0.5));
-        head.rotation.z = Math.sin(phase * 0.6) * 0.04;
-        phase += dt;
-        return;
-      }
-      if (walking) {
-        phase += dt * 9;
-        const s = Math.sin(phase);
-        legs[0].rotation.x = s * 0.6;
-        legs[1].rotation.x = -s * 0.6;
-        arms[0].rotation.x = -s * 0.55;
-        arms[1].rotation.x = s * 0.55;
-        body.position.y = Math.abs(Math.cos(phase)) * 0.05;
-        head.rotation.z = 0;
-      } else {
-        phase += dt * 1.6;
-        legs.forEach((l) => (l.rotation.x *= 0.8));
-        arms.forEach((a) => (a.rotation.x *= 0.8));
-        body.position.y = Math.sin(phase) * 0.012;
-        head.rotation.z = Math.sin(phase * 0.5) * 0.03;
-      }
+      if (!vrm) return;
+      animate(dt, walking, sitting);
+      vrm.update(dt);
     },
-    dispose() {
-      root.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
-    },
+    dispose() { alive = false; if (vrm) VRMUtils.deepDispose(vrm.scene); },
   };
-}
-
-// 고르는 화면에 쓰는 앞치마 그림
-export function apronSvg(color, mark) {
-  return `<svg viewBox="0 0 46 62"><path d="M15 4 h16 v10 l9 44 a3 3 0 0 1-3 3 H9 a3 3 0 0 1-3-3 l9-44z" fill="${color}"/>
-  <text x="23" y="40" text-anchor="middle" font-size="13" fill="#fff">${mark}</text></svg>`;
 }

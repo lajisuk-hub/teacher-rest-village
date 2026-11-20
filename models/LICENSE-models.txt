@@ -1,0 +1,4 @@
+VRoid 견본 모델 (VRoid 프로젝트 / pixiv)
+출처: https://opengameart.org/content/vroid-studio-cc0-models
+모델 안 이용조건: 누구나 사용, 개인·기업 상업 이용 허용, 수정·재배포 허용, 출처표시 불필요
+이 앱에서는 그림 크기를 512px로 줄여 사용

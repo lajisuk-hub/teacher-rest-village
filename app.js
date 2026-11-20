@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { createClient } from '@supabase/supabase-js';
 import { SCENES } from './world.js';
-import { APRONS, makeAvatar, apronSvg } from './avatar.js';
+import { CHARS, makeAvatar, preload } from './avatar.js';
 import { startMusic, stopMusic, setVolume, musicOn } from './music.js';
 
 // 전시관 앱들과 같은 Supabase 프로젝트의 "실시간 중계" 기능만 씁니다(표·파일 저장 없음).
@@ -10,7 +10,7 @@ import { startMusic, stopMusic, setVolume, musicOn } from './music.js';
 const SUPABASE_URL = 'https://pgywpdodatjfpivxmymn.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_FeO3LdfFBB6KEwblcZPa2w_sW9dVuUg';
 const ROOM_MAX = 50;
-const CH = 'todak-v1';
+const CH = 'todak-v3';
 
 const $ = (id) => document.getElementById(id);
 const ADJ = ['다정한', '씩씩한', '포근한', '꼼꼼한', '느긋한', '상냥한', '노래하는', '산책하는', '햇살같은', '별빛같은', '차분한', '든든한', '빙그레', '토닥토닥', '반가운', '말랑한', '싱그러운', '도란도란'];
@@ -19,7 +19,7 @@ const hash = (s) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7);
 
 const me = {
   id: (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())).slice(0, 12),
-  name: '', apron: 'pink', room: 'garden', x: 0, z: 0, ry: 0, sit: null,
+  name: '', char: CHARS[Math.floor(Math.random() * CHARS.length)].id, room: 'garden', x: 0, z: 0, ry: 0, sit: null,
 };
 
 // ───────── 3D 기본 틀
@@ -94,7 +94,7 @@ function setClose(v) {
   cam.close = v;
   $('closeBtn').classList.toggle('on', v);
   $('closeBtn').textContent = v ? '전체 보기' : '가까이 보기';
-  cam.distT = v ? 11 : baseDist();
+  cam.distT = v ? 13 : baseDist();
   if (!v) cam.focusT.copy(S.center);
 }
 $('closeBtn').onclick = () => setClose(!cam.close);
@@ -112,14 +112,14 @@ const people = new Map(); // id -> actor
 let myActor = null;
 
 function makeActor(id, info, isMe = false) {
-  const av = makeAvatar(info.apron || 'leaf', hash(id));
+  const av = makeAvatar(info.char || CHARS[0].id);
   actors.add(av.root);
   const tag = document.createElement('div');
   tag.className = 'tag' + (isMe ? ' me' : '');
   tag.textContent = info.name || '선생님';
   labels.appendChild(tag);
   const a = {
-    id, av, tag, bubble: null, bubbleTimer: 0, name: info.name, isMe,
+    id, av, tag, bubble: null, bubbleTimer: 0, name: info.name, isMe, char: info.char,
     x: info.x ?? 0, z: info.z ?? 0, ry: info.ry ?? 0, sit: info.sit || null,
     t: { x: info.x ?? 0, z: info.z ?? 0, ry: info.ry ?? 0, sit: info.sit || null, w: false },
     walking: false,
@@ -133,8 +133,9 @@ function removeActor(a) {
   a.tag.remove();
   if (a.bubble) a.bubble.remove();
 }
-function say(a, text) {
+function say(a, text, gesture = 'emote-yes') {
   if (!a) return;
+  a.av.gesture(gesture);
   if (a.bubble) a.bubble.remove();
   const b = document.createElement('div');
   b.className = 'bubble';
@@ -262,14 +263,14 @@ function tapAt(cx, cy) {
     return;
   }
   pendingSeat = null;
-  if (ud.act) { say(myActor, ud.act); sendSay(ud.act); }
+  if (ud.act) { say(myActor, ud.act, 'interact-right'); sendSay(ud.act, 'interact-right'); }
   const b = S.bounds;
   moveTarget = { x: Math.max(b.x0, Math.min(b.x1, hit.point.x)), z: Math.max(b.z0, Math.min(b.z1, hit.point.z)) };
 }
 
 // ───────── 실시간 중계(Supabase Realtime: 표 저장 없이 소식만 전달)
 let sb = null, lobby = null, roomCh = null, online = false, lastSend = 0, trackTimer = 0;
-const myState = () => ({ name: me.name, apron: me.apron, x: +me.x.toFixed(2), z: +me.z.toFixed(2), ry: +me.ry.toFixed(2), sit: me.sit });
+const myState = () => ({ name: me.name, char: me.char, x: +me.x.toFixed(2), z: +me.z.toFixed(2), ry: +me.ry.toFixed(2), sit: me.sit });
 
 function lobbyCounts() {
   const counts = Object.fromEntries(SCENES.map((s) => [s.id, 0]));
@@ -318,7 +319,7 @@ async function joinRoomChannel(room) {
       if (!a) { a = makeActor(id, m); people.set(id, a); }
       else {
         a.t = { ...a.t, x: m.x, z: m.z, ry: m.ry, sit: m.sit, w: false };
-        if (m.apron) a.av.setApron(m.apron);
+        if (m.char && m.char !== a.char) { a.char = m.char; a.av.setChar(m.char); }
       }
     }
     for (const [id, a] of people) if (!st[id]) { removeActor(a); people.delete(id); }
@@ -327,8 +328,8 @@ async function joinRoomChannel(room) {
     const a = people.get(p.id);
     if (a) a.t = { x: p.x, z: p.z, ry: p.ry, sit: p.sit, w: p.w };
   });
-  ch.on('broadcast', { event: 's' }, ({ payload: p }) => say(people.get(p.id), p.text));
-  ch.on('broadcast', { event: 'a' }, ({ payload: p }) => { const a = people.get(p.id); if (a) a.av.setApron(p.apron); });
+  ch.on('broadcast', { event: 's' }, ({ payload: p }) => say(people.get(p.id), p.text, p.g));
+  ch.on('broadcast', { event: 'a' }, ({ payload: p }) => { const a = people.get(p.id); if (a && p.char !== a.char) { a.char = p.char; a.av.setChar(p.char); } });
   ch.subscribe(async (st) => { if (st === 'SUBSCRIBED' && roomCh === ch) await ch.track(myState()); });
 }
 function sendMove(final) {
@@ -339,7 +340,7 @@ function sendMove(final) {
   roomCh.send({ type: 'broadcast', event: 'm', payload: { id: me.id, ...myState(), w: !final } });
   if (final) { clearTimeout(trackTimer); trackTimer = setTimeout(() => roomCh && roomCh.track(myState()), 400); }
 }
-function sendSay(text) { if (roomCh && online) roomCh.send({ type: 'broadcast', event: 's', payload: { id: me.id, text } }); }
+function sendSay(text, g) { if (roomCh && online) roomCh.send({ type: 'broadcast', event: 's', payload: { id: me.id, text, g } }); }
 
 // ───────── 방 옮기기
 const SPAWNS = { garden: { x: 2, z: 3 } };
@@ -390,22 +391,24 @@ $('vol').oninput = (e) => setVolume(+e.target.value);
 
 // ───────── 처음 화면(앞치마 고르기)
 let changing = false;
+let thumbs = {};
 function renderAprons() {
-  $('aprons').innerHTML = APRONS.map((a) => `<button data-id="${a.id}" class="${a.id === me.apron ? 'on' : ''}">${apronSvg(a.color, a.mark)}<span>${a.name}</span></button>`).join('');
-  for (const b of $('aprons').children) b.onclick = () => { me.apron = b.dataset.id; renderAprons(); };
+  $('aprons').innerHTML = CHARS.map((c) => `<button data-id="${c.id}" class="${c.id === me.char ? 'on' : ''}" title="캐릭터 고르기"><img src="models/thumbs/${c.id}.png" alt=""></button>`).join('');
+  for (const b of $('aprons').children) b.onclick = () => { me.char = b.dataset.id; preload(me.char); renderAprons(); };
 }
 renderAprons();
+preload(me.char);
 $('apronBtn').onclick = () => {
   changing = true;
-  $('goBtn').textContent = '이 앞치마로 바꾸기';
+  $('goBtn').textContent = '이 캐릭터로 바꾸기';
   $('welcome').querySelector('.note').hidden = true;
   $('welcome').hidden = false;
 };
 $('goBtn').onclick = () => {
   $('welcome').hidden = true;
   if (changing) {
-    myActor.av.setApron(me.apron);
-    if (roomCh && online) { roomCh.send({ type: 'broadcast', event: 'a', payload: { id: me.id, apron: me.apron } }); roomCh.track(myState()); }
+    myActor.av.setChar(me.char);
+    if (roomCh && online) { roomCh.send({ type: 'broadcast', event: 'a', payload: { id: me.id, char: me.char } }); roomCh.track(myState()); }
     return;
   }
   me.name = randName();
@@ -423,7 +426,7 @@ $('goBtn').onclick = () => {
 const tmp = new THREE.Vector3();
 const clock = new THREE.Clock();
 function placeLabel(a) {
-  const h = a.sit ? 1.75 : 1.95;
+  const h = a.sit ? 1.35 : 1.62;
   tmp.set(a.av.root.position.x, h, a.av.root.position.z).project(camera);
   const vis = tmp.z < 1;
   const sx = (tmp.x * 0.5 + 0.5) * innerWidth, sy = (-tmp.y * 0.5 + 0.5) * innerHeight;
@@ -445,7 +448,8 @@ function updateActor(a, dt) {
     a.walking = !t.sit && (Math.hypot(a.x - ox, a.z - oz) > 0.004 || (t.w && Math.hypot(t.x - a.x, t.z - a.z) > 0.05));
   }
   const p = a.av.root.position;
-  if (a.sit) { p.set(a.sit.x + Math.sin(a.sit.f) * 0.12, a.sit.y - 0.42, a.sit.z + Math.cos(a.sit.f) * 0.12); a.av.root.rotation.y = a.sit.f; }
+  // 앉기 동작은 엉덩이를 바닥 쪽으로 0.28 내리므로, 몸 전체를 의자 높이만큼 올려 엉덩이가 방석에 닿게 함
+  if (a.sit) { p.set(a.sit.x + Math.sin(a.sit.f) * 0.08, a.sit.y + 0.2 - a.av.hipsY, a.sit.z + Math.cos(a.sit.f) * 0.08); a.av.root.rotation.y = a.sit.f; }
   else { p.set(a.x, 0, a.z); a.av.root.rotation.y = a.ry; }
   a.av.update(dt, a.walking, !!a.sit);
   if (a.bubble) { a.bubbleTimer -= dt; if (a.bubbleTimer <= 0) { a.bubble.remove(); a.bubble = null; } }
@@ -464,8 +468,8 @@ function loop() {
 showScene('garden');
 cam.dist = cam.distT;
 cam.focus.copy(cam.focusT);
-$('loadMsg').textContent = '방마다 최대 50명 · 앞치마는 언제든 바꿀 수 있어요';
+$('loadMsg').textContent = '방마다 최대 50명 · 캐릭터는 언제든 바꿀 수 있어요';
 loop();
 
 // 시험용(화면 확인할 때만 씀)
-window.__todak = { me, people, goRoom, tapAt, get online() { return online; } };
+window.__todak = { me, people, goRoom, tapAt, cam, get myActor() { return myActor; }, get online() { return online; } };

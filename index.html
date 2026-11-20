@@ -11,6 +11,8 @@
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/",
+  "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.1.0/lib/three-vrm.module.min.js",
   "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm"
 } }
 </script>
@@ -32,7 +34,7 @@
 
 <div class="me-card hud" hidden id="meCard">
   <div><b id="myName">-</b><small id="myStatus">연결 중…</small></div>
-  <button id="apronBtn">앞치마</button>
+  <button id="apronBtn">캐릭터</button>
 </div>
 
 <nav class="rooms hud" hidden id="roomBar"></nav>
@@ -59,9 +61,10 @@
     <h2>반가워요, 선생님 <span>🌷</span></h2>
     <p class="lead">아이들 곁에서 바빴던 하루,<br>여기서는 선생님 마음부터 토닥여요.</p>
     <div class="aprons" id="aprons"></div>
-    <p class="note">이름은 들어갈 때 제비뽑기로 정해져요.</p>
+    <p class="note">마음에 드는 친구를 골라 주세요. 이름은 들어갈 때 제비뽑기로 정해져요.</p>
     <button class="go" id="goBtn">쉼터로 들어가기</button>
     <p class="small" id="loadMsg">3D 마을을 준비하고 있어요…</p>
+    <p class="credit">캐릭터: VRoid 견본 모델(VRoid 프로젝트)</p>
   </div>
 </div>
 
